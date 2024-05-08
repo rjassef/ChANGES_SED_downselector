@@ -37,8 +37,22 @@ def downselect(out_fname, rlim=21.5, gap_relative_density_definition=0.2, gap_re
 
     #Filter the area requested if provided. 
     if area_coords is not None:
-        #IMPLEMENT!!!
-        pass
+        for k, area_coord in enumerate(area_coords):
+            ramin,  ramax  = area_coord[0]
+            decmin, decmax = area_coord[1]
+            area_cond_F_aux = (Fcat['ra']>ramin) & (Fcat['dec']>decmin)\
+                 & (Fcat['ra']<ramax) & (Fcat['dec']<decmax)
+            area_cond_B_aux = (BIC_cat['ra']>ramin) & (BIC_cat['dec']>decmin)\
+                 & (BIC_cat['ra']<ramax) & (BIC_cat['dec']<decmax)
+            if k==0:
+                area_cond_F = area_cond_F_aux
+                area_cond_B = area_cond_B_aux
+            else:
+                area_cond_F = area_cond_F | area_cond_F_aux
+                area_cond_B = area_cond_B | area_cond_B_aux
+        Fcat = Fcat[area_cond_F]
+        Bcat = Bcat[area_cond_B]
+        
 
     #Filter out the stars if requested.
     if star_rejection:
