@@ -51,7 +51,7 @@ def downselect(out_fname, rlim=21.5, gap_relative_density_definition=0.2, gap_re
                 area_cond_F = area_cond_F | area_cond_F_aux
                 area_cond_B = area_cond_B | area_cond_B_aux
         Fcat = Fcat[area_cond_F]
-        Bcat = Bcat[area_cond_B]
+        BIC_cat = BIC_cat[area_cond_B]
         
 
     #Filter out the stars if requested.
