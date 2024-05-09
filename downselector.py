@@ -3,15 +3,40 @@ import healpy as hp
 from astropy.table import Table, vstack
 from filter_stars import remove_stars
 
-
-#Function for healpix to convert from RA/Dec to spherical coordinates. 
 def radec_to_sph(ra,dc):
+    """
+    Simple function to convert from RA/Dec to spherical coordinates. Useful for healpix. 
+
+    Parameters
+    ----------
+    ra  :   numpy array or float
+            Value of the R.A. Can be a numpy array.
+
+    dec :   numpy array or float
+            Value of the Dec. Can be a numpy array.
+    """
+
     theta = (90.-dc)*np.pi/180.
     phi   = ra*np.pi/180.
     return theta, phi
 
-#Function to get the healpix pixel numbers for a list of RA and Dec.
+
 def get_n(ra,dec,NSIDE):
+    """
+    Function to get the healpix cell index for a given RA and Dec. 
+
+    Parameters
+    ----------
+    ra      :   numpy array or float
+                Value of the R.A. Can be a numpy array.
+
+    dec     :   numpy array or float
+                Value of the Dec. Can be a numpy array.
+
+    NSIDE   :   int
+                Healpix NSIDE parameter.
+
+    """
     #Convert to ra/dec
     theta, phi = radec_to_sph(ra,dec)
     #set up the healpix grid.
@@ -19,8 +44,46 @@ def get_n(ra,dec,NSIDE):
     return n
 
 
-#Main function 
 def downselect(out_fname, rlim=21.5, gap_relative_density_definition=0.2, gap_relative_density_target=0.5, area_coords=None, NSIDE=64, star_rejection=True, target_density=None):
+    """
+    This is the main subroutine for downselection of the targets for the SED component of the 4MOST/ChANGES survey. The subroutine divides the sky in healpix cells of a size given by the NSIDE. 
+    
+    It first read and limits the F-test and BIC catalogs to mag_auto_r < rlim, applies spatial cuts given by the area_coords array, and cuts to eliminates stellar contaminants if star_rejection is True. 
+
+    After that, it creates a catalog with a given source density (if possible) in each healpix cell. First all F-test sources are added, ranked by their F-test probability, and then sources are added from the BIC catalog, ranked by BIC, to try to complete the targeted number of sources per healpix cell (or until all candidates in the cell are exhausted). 
+
+    If no target source density is provided (target_density parameter), the target_density is automatically set to the median source density of the healpix cells of the F-test catalog (after magnitude, spatial, an stellar color cuts are applied) within the region of interest. 
+
+    Healpix cells where the F-test source density falls below a fraction of the targeted density (given by the gap_relative_density_definition parameter) are only filled up to a source density given by gap_relative_density_target * target_density.
+
+    Parameters
+    ----------
+
+    out_fname                       :   str
+                                        Name of the output catalog file. Existing files will be overwritten.
+    
+    rlim                            :   float
+                                        auto_mag_r magnitude limit of the output catalog. Default is r=21.5.
+
+    gap_relative_density_definition :   float
+                                        Relative density with respect to the target density of a healpix cell that defines it as a gap region (i.e., region of lower depth or band coverage). Default is 0.2. 
+    
+    gap_relative_density_target     :   float
+                                        Healpix cells defined as gap cells are only filled up to this relative fraction of the target_density. Default value is 0.5.
+    
+    area_coords                     :   list or float array of dimension Nx2x2
+                                        Spatial cuts to target specific regions. Multiple regions can be defined, each corresponding to the first index of the array or list. The second index holds the minimum and maximum RAs of the region in the first position and the minimum and maximum Decs in the second position. Default value is None.
+    
+    NSIDE                           :   int
+                                        Healpix NSIDE parameter. Determines the cell size. Default value is 64.
+    
+    star_rejection                  :   bool
+                                        Boolean that determines whether to apply stellar rejection color cuts or not. Default value is True.
+    
+    target_density                  :   float
+                                        Targeted source density for each healpix cell. If give a value of None, the target density is set to be the median density of the healpix cells of the F-test catalog (after magnitude, spatial and stellar rejection cuts). Default value is None.
+
+    """
 
     #First we defined the basic healpix parameters we will use. 
     npix = hp.nside2npix(NSIDE)
