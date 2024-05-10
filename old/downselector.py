@@ -1,8 +1,47 @@
 import numpy as np
+import healpy as hp
 from astropy.table import Table, vstack
 from filter_stars import remove_stars
-from healpyHelper import HealpyHelper
 
+def radec_to_sph(ra,dc):
+    """
+    Simple function to convert from RA/Dec to spherical coordinates. Useful for healpix. 
+
+    Parameters
+    ----------
+    ra  :   numpy array or float
+            Value of the R.A. Can be a numpy array.
+
+    dec :   numpy array or float
+            Value of the Dec. Can be a numpy array.
+    """
+
+    theta = (90.-dc)*np.pi/180.
+    phi   = ra*np.pi/180.
+    return theta, phi
+
+
+def get_n(ra,dec,NSIDE):
+    """
+    Function to get the healpix cell index for a given RA and Dec. 
+
+    Parameters
+    ----------
+    ra      :   numpy array or float
+                Value of the R.A. Can be a numpy array.
+
+    dec     :   numpy array or float
+                Value of the Dec. Can be a numpy array.
+
+    NSIDE   :   int
+                Healpix NSIDE parameter.
+
+    """
+    #Convert to ra/dec
+    theta, phi = radec_to_sph(ra,dec)
+    #set up the healpix grid.
+    n = hp.ang2pix(NSIDE, theta, phi)    
+    return n
 
 
 def downselect(out_fname, rlim=21.5, gap_relative_density_definition=0.2, gap_relative_density_target=0.5, area_coords=None, NSIDE=64, star_rejection=True, target_density=None, Fcat_initial=None, BIC_cat_inital=None):
@@ -52,8 +91,10 @@ def downselect(out_fname, rlim=21.5, gap_relative_density_definition=0.2, gap_re
 
     """
 
-    #First we defined the basic healpix parameters we will use.
-    hph = HealpyHelper(NSIDE)
+    #First we defined the basic healpix parameters we will use. 
+    npix = hp.nside2npix(NSIDE)
+    total_degrees_in_sky = 4.*np.pi*(180./np.pi)**2
+    area_per_pixel = total_degrees_in_sky/(1.*npix)
 
     #Read the AGN candidate catalogs. 
     if Fcat_initial is None:
@@ -96,17 +137,17 @@ def downselect(out_fname, rlim=21.5, gap_relative_density_definition=0.2, gap_re
 
 
     #Get the healpix pixel numbers.
-    n_F = hph.get_n(Fcat['ra'] , Fcat['dec'])
-    n_B = hph.get_n(BIC_cat['ra'], BIC_cat['dec'])
+    n_F = get_n(Fcat['ra'] , Fcat['dec'] , NSIDE)
+    n_B = get_n(BIC_cat['ra'], BIC_cat['dec'], NSIDE)
 
     #Add up the number of sources per healpix pixel. 
-    h_F = np.histogram(n_F,hph.npix, range=(0,hph.npix-1))[0]
-    h_B = np.histogram(n_B,hph.npix, range=(0,hph.npix-1))[0]
+    h_F = np.histogram(n_F,hp.nside2npix(NSIDE), range=(0,hp.nside2npix(NSIDE)-1))[0]
+    h_B = np.histogram(n_B,hp.nside2npix(NSIDE), range=(0,hp.nside2npix(NSIDE)-1))[0]
 
     #If a target source density has not been provided, set it to the median field F-test density.
     if target_density is None:
         median_F_number = np.median(h_F[h_F>0])
-        target_density = median_F_number/hph.area_per_pixel
+        target_density = median_F_number/area_per_pixel
         print("The median density of F-test sources is {:.1f} per sq. deg. Set as target density.".format(target_density))
     else:
         print("The target density of sources is {:.1f} per sq. deg.".format(target_density))
@@ -119,7 +160,7 @@ def downselect(out_fname, rlim=21.5, gap_relative_density_definition=0.2, gap_re
     BIC_cat['Final_cat']  = 0.
 
     #This is the main loop to select the sources.
-    target_number_per_pix = target_density*hph.area_per_pixel
+    target_number_per_pix = target_density*area_per_pixel
     gap_limit_number = gap_relative_density_definition*target_number_per_pix
     main_survey_condition = (h_F>=gap_limit_number)
     gap_condition = (h_B>0) & (h_F<gap_limit_number)
