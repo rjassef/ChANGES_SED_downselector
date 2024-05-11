@@ -5,7 +5,7 @@ from healpyHelper import HealpyHelper
 
 
 
-def downselect(out_fname, rlim=21.5, gap_relative_density_definition=0.2, gap_relative_density_target=0.5, area_coords=None, NSIDE=64, star_rejection=True, target_density=None, Fcat_initial=None, BIC_cat_inital=None):
+def downselect(out_fname, rlim=21.5, gap_relative_density_definition=0.2, gap_relative_density_target=0.5, area_coords=None, NSIDE=64, star_rejection=True, target_density=None, Fcat_initial=None, BIC_cat_inital=None, no_r_survey=False, blocked_ids=None):
     """
     This is the main subroutine for downselection of the targets for the SED component of the 4MOST/ChANGES survey. The subroutine divides the sky in healpix cells of a size given by the NSIDE. 
     
@@ -65,6 +65,17 @@ def downselect(out_fname, rlim=21.5, gap_relative_density_definition=0.2, gap_re
         BIC_cat = Table.read("../Victoria_v1.1_SED_catalogs/Master_Catalog_BIC_AGN_nb_le_6_full_photometry.fits")
     else:
         BIC_cat = BIC_cat_inital
+        
+    #There is an issue that there are repeated sources, about 85k in the F-test catalog, and about 350k in the BIC_catalog. We need to filter them out before we do the selection. As far I can tell, the duplicates are exact (i.e., all other information matches). May be due to sources at the edge of the RA ranges. 
+    _, k_unique_F = np.unique(Fcat['id'], return_index=True)
+    Fcat = Fcat[k_unique_F]
+    _, k_unique_B = np.unique(BIC_cat['id'], return_index=True)
+    BIC_cat = BIC_cat[k_unique_B]
+    
+    #Additionally, we want to make sure that there are no sources in the medium catalog that are already in the wide catalog. Hence, if provided, we need to filter here the sources already in the wide survey. 
+    if blocked_ids is not None:
+        Fcat    = Fcat[~np.isin(Fcat['id'], blocked_ids)]
+        BIC_cat = BIC_cat[~np.isin(BIC_cat['id'], blocked_ids)]
 
     #Apply the magnitude limits.
     Fcat = Fcat[Fcat['mag_auto_r']<rlim]
@@ -91,8 +102,8 @@ def downselect(out_fname, rlim=21.5, gap_relative_density_definition=0.2, gap_re
 
     #Filter out the stars if requested.
     if star_rejection:
-        Fcat = remove_stars(Fcat)
-        BIC_cat = remove_stars(BIC_cat)
+        Fcat = remove_stars(Fcat, no_r_survey=no_r_survey)
+        BIC_cat = remove_stars(BIC_cat, no_r_survey=no_r_survey)
 
 
     #Get the healpix pixel numbers.
@@ -123,7 +134,7 @@ def downselect(out_fname, rlim=21.5, gap_relative_density_definition=0.2, gap_re
     gap_limit_number = gap_relative_density_definition*target_number_per_pix
     main_survey_condition = (h_F>=gap_limit_number)
     gap_condition = (h_B>0) & (h_F<gap_limit_number)
-    for n in range(npix):
+    for n in range(hph.npix):
 
         #If there are no sources, skip to the next step. 
         if h_B[n]+h_F[n]==0:

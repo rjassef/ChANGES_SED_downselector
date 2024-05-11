@@ -18,7 +18,7 @@ def read_davenport():
 
     return sl_tab
 
-def remove_stars(tab):
+def remove_stars(tab, no_r_survey=False):
 
     #Start by reading the stellar locus. 
     sl_tab = read_davenport()
@@ -33,6 +33,20 @@ def remove_stars(tab):
     pm_cond = (pm_snr<5) | (pm_snr.mask)
 
     #Now, determine the colors cuts. 
+    
+    #####
+    # No r-band survey - Needed for this survey, but not justified for the rest. 
+    #####
+    if no_r_survey:
+        
+        #Interpolate the stellar locus tab to create a limit in z-W1 for the g-i color of each source.
+        zw1_lim = np.interp(tab['mag_auto_g']-tab['mag_auto_i'], sl_tab['g-i'], sl_tab['z-w1']) + 0.5
+        sl_nr_cut = tab['mag_auto_z']-tab['w1mpro']<zw1_lim
+
+        #Additionally, since the cut only makes sense for sources detected in all four bands,
+        #we should require a detection on them. 
+        for band in ['mag_auto_g', 'mag_auto_i', 'mag_auto_z', 'w1mpro']:
+            sl_nr_cut = sl_nr_cut & (tab[band]<99.)        
 
     #####
     # First color cut
@@ -72,6 +86,8 @@ def remove_stars(tab):
 
     #Then the full requirement is
     sel_cond = pm_cond & (~sl_cut1) & (~sl_cut2) & (~sl_cut3)
+    if no_r_survey:
+        sel_cond = sel_cond & (~sl_nr_cut)
 
     return tab[sel_cond]
 
