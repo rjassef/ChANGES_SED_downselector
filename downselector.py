@@ -50,6 +50,12 @@ def downselect(out_fname, rlim=21.5, gap_relative_density_definition=0.2, gap_re
     BIC_cat_initial                 :   astropy.table
                                         Initial table of BIC candidates to which we start applying the cuts. If None, the default table is loaded.
 
+    no_r_survey                     :   bool
+                                        Flag to indicate if the data being processed is for the no r-band survey. The stellar color cuts are different in this case. Default value is False.
+
+    blocked_ids                     :   numpy int array
+                                        Array with IDs that are not to be used in making the catalog. This is useful to avoid wide survey sources being included in the medium survey catalog. Default is None.
+
     """
 
     #First we defined the basic healpix parameters we will use.
