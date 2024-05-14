@@ -78,6 +78,9 @@ def downselect(out_fname, rlim=21.5, gap_relative_density_definition=0.2, gap_re
     _, k_unique_B = np.unique(BIC_cat['id'], return_index=True)
     BIC_cat = BIC_cat[k_unique_B]
     
+    #Also make sure that there are no repeated IDs between the F-test and BIC catalogs. This can happen because there is a small number of sources that are repeated within the original catalogs, but in one version are missing the VISTA photometry. 
+    BIC_cat = BIC_cat[~np.isin(BIC_cat['id'], Fcat['id'])]
+
     #Additionally, we want to make sure that there are no sources in the medium catalog that are already in the wide catalog. Hence, if provided, we need to filter here the sources already in the wide survey. 
     if blocked_ids is not None:
         Fcat    = Fcat[~np.isin(Fcat['id'], blocked_ids)]
